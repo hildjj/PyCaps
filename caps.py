@@ -5,6 +5,14 @@ from sha import sha
 import xml.etree.ElementTree as etree
 import sys
 
+def check(s):
+    "Check the given string for instances of <"
+    if not s:
+        return s
+    if s.find("<") >= 0:
+        raise Exception("Being attacked by an attempt at hash collision:", s)
+    return s
+
 iq = etree.fromstring(q.encode('utf8'))
 
 # 0. Initialize an empty string S.
@@ -27,7 +35,7 @@ ids.sort()
 # 2. For each identity, append the 'category/type/lang/name' to S,
 # followed by the '<' character.
 for i in ids:
-    S += "/".join(i) + "<"
+    S += "/".join([check(j) for j in i]) + "<"
 
 # 3. Sort the supported service discovery features. [15]    
 feats = []
@@ -38,7 +46,7 @@ feats.sort()
 # 4. For each feature, append the feature to S, followed by the '<'
 # character.
 for f in feats:
-    S += f + "<"
+    S += check(f) + "<"
 
 # 5. If the service discovery information response includes XEP-0128
 # data forms, sort the forms by the FORM_TYPE field.
@@ -70,7 +78,7 @@ forms.sort()
 # 6. For each extended service discovery information form:
 for typ, fields in forms:
     # 0. Append the value of the FORM_TYPE field, followed by the '<' character.
-    S += typ + "<"
+    S += check(typ) + "<"
     
     # 1. Sort the fields by the value of the "var" attribute.
     fields.sort()
@@ -79,7 +87,7 @@ for typ, fields in forms:
     for var, vals in fields:
         # 0. Append the value of the "var" attribute, followed by the
         # '<' character.
-        S += var + "<"
+        S += check(var) + "<"
         
         # 1. Sort values by the XML character data of the <value/>
         # element.
@@ -88,7 +96,7 @@ for typ, fields in forms:
         # 2. For each <value/> element, append the XML character data,
         # followed by the '<' character.
         for v in vals:
-            S += v + "<"
+            S += check(v) + "<"
     
 print S
 print
