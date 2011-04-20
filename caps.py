@@ -1,6 +1,8 @@
+import base64
 import hashlib
-import xml.etree.ElementTree as etree
 import sys
+import xml.etree.ElementTree as etree
+from warnings import warn
 
 def check(s):
     "Check the given string for instances of <"
@@ -10,12 +12,11 @@ def check(s):
         raise Exception("Being attacked by an attempt at hash collision:", s)
     return s
 
-def get_ver_string(q):
+def get_ver_string(q, opts):
     if q == None:
         return ''
     
-    iq = etree.fromstring(q.encode('utf8'))
-    print etree.tostring(iq)
+    iq = etree.fromstring(q)
     # 0. Initialize an empty string S.
     S = ''
     
@@ -62,14 +63,14 @@ def get_ver_string(q):
             name = field.get("var")
             if name == "FORM_TYPE":
                 if typ:
-                    print "two FORM_TYPEs"
+                    warn("two FORM_TYPEs")
                     sys.exit(1)
                 typ = values[0]
             else:
                 form.append([name, values])
         if typ:
             if typ in forms:
-                print "two FORM_TYPEs the same"
+                warn("two FORM_TYPEs the same")
                 sys.exit(1)
             forms[typ] = form
     
@@ -98,9 +99,10 @@ def get_ver_string(q):
             # followed by the '<' character.
             for v in vals:
                 S += check(v) + "<"
-        
-    print S
-    print
+                
+    if opts.verbose:
+        print S
+        print
     
     # 7. Compute ver by hashing S using the algorithm specified in the
     # 'hash' attribute (e.g., SHA-1 as defined in RFC 3174 [16]). The
@@ -108,16 +110,26 @@ def get_ver_string(q):
     # Base64 as specified in Section 4 of RFC 4648 [17] (note: the Base64
     # output MUST NOT include whitespace and MUST set padding bits to
     # zero). [18]
-    #ver = sha(S.encode('utf8')).digest().encode('base64')
-    ver = hashlib.sha1(S.encode('utf8')).digest().encode('base64')
-    
-    return ver
+    return base64.b64encode(hashlib.sha1(S.encode('utf8')).digest())
 
 ###############################################################################
 # Interactive
 ###############################################################################
 if __name__ == '__main__':
-    import sys, string
-    data = sys.stdin.read()
-    ver = get_ver_string(data)
-    print ver
+    from optparse import OptionParser
+    parser = OptionParser()
+    parser.add_option("-v", "--verbose",
+                      action="store_true", dest="verbose", default=False,
+                      help="Print separated string before hashing")
+
+    (options, args) = parser.parse_args()
+    if not args:
+        args = ["-"]
+    for fn in args:
+        if fn == "-":
+            data = sys.stdin.read()
+        else:
+            f = open(fn)
+            data = f.read()
+            f.close()
+        print get_ver_string(data, options)
