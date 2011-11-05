@@ -1,16 +1,19 @@
 import base64
 import hashlib
 import sys
+import cgi
 import xml.etree.ElementTree as etree
 from warnings import warn
 
-def check(s):
+SECURE_SEPARATOR = u"\ufeff".encode('utf-8')
+
+def check(s, optional=False):
     "Check the given string for instances of <"
     if not s:
-        return s
-    if s.find("<") >= 0:
-        raise Exception("Being attacked by an attempt at hash collision:", s)
-    return s
+        if not optional:
+            raise Exception("Being attacked by an empty string:", s)
+        return ""
+    return cgi.escape(s).encode('utf-8')
 
 def get_ver_string(q, opts):
     if q == None:
@@ -28,27 +31,27 @@ def get_ver_string(q, opts):
     query = iq.find("{http://jabber.org/protocol/disco#info}query")
     ids = []
     for i in query.findall('{http://jabber.org/protocol/disco#info}identity'):
-        ids.append([i.get("category"),
-                    i.get("type") or "",
-                    i.get("{http://www.w3.org/XML/1998/namespace}lang") or "",
-                    i.get("name")] or "")
+        ids.append([check(i.get("category")),
+                    check(i.get("type"), True),
+                    check(i.get("{http://www.w3.org/XML/1998/namespace}lang"), True),
+                    check(i.get("name", True))])
     ids.sort()
     
     # 2. For each identity, append the 'category/type/lang/name' to S,
     # followed by the '<' character.
     for i in ids:
-        S += "/".join([check(j) for j in i]) + "<"
+        S += "/".join(i) + "<"
     
     # 3. Sort the supported service discovery features. [15]    
     feats = []
     for f in query.findall('{http://jabber.org/protocol/disco#info}feature'):
-        feats.append(f.get("var"))
+        feats.append(check(f.get("var")))
     feats.sort()
     
     # 4. For each feature, append the feature to S, followed by the '<'
     # character.
     for f in feats:
-        S += check(f) + "<"
+        S += f + "<"
     
     # 5. If the service discovery information response includes XEP-0128
     # data forms, sort the forms by the FORM_TYPE field.
@@ -59,8 +62,8 @@ def get_ver_string(q, opts):
         for field in x.findall("{jabber:x:data}field"):
             values = []
             for v in field.findall("{jabber:x:data}value"):
-                values.append(v.text)
-            name = field.get("var")
+                values.append(check(v.text, True))
+            name = check(field.get("var"))
             if name == "FORM_TYPE":
                 if typ:
                     warn("two FORM_TYPEs")
@@ -89,7 +92,7 @@ def get_ver_string(q, opts):
         for var, vals in fields:
             # 0. Append the value of the "var" attribute, followed by the
             # '<' character.
-            S += check(var) + "<"
+            S += var + "<"
             
             # 1. Sort values by the XML character data of the <value/>
             # element.
@@ -98,7 +101,7 @@ def get_ver_string(q, opts):
             # 2. For each <value/> element, append the XML character data,
             # followed by the '<' character.
             for v in vals:
-                S += check(v) + "<"
+                S += v + "<"
                 
     if opts.verbose:
         print S
@@ -110,7 +113,7 @@ def get_ver_string(q, opts):
     # Base64 as specified in Section 4 of RFC 4648 [17] (note: the Base64
     # output MUST NOT include whitespace and MUST set padding bits to
     # zero). [18]
-    return base64.b64encode(hashlib.sha1(S.encode('utf8')).digest())
+    return base64.b64encode(hashlib.sha1(S).digest())
 
 ###############################################################################
 # Interactive
