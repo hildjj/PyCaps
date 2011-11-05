@@ -5,7 +5,7 @@ import cgi
 import xml.etree.ElementTree as etree
 from warnings import warn
 
-SECURE_SEPARATOR = u"\ufeff".encode('utf-8')
+SEP = "<"
 
 def check(s, optional=False):
     "Check the given string for instances of <"
@@ -40,7 +40,7 @@ def get_ver_string(q, opts):
     # 2. For each identity, append the 'category/type/lang/name' to S,
     # followed by the '<' character.
     for i in ids:
-        S += "/".join(i) + "<"
+        S += "/".join(i) + SEP
     
     # 3. Sort the supported service discovery features. [15]    
     feats = []
@@ -51,7 +51,7 @@ def get_ver_string(q, opts):
     # 4. For each feature, append the feature to S, followed by the '<'
     # character.
     for f in feats:
-        S += f + "<"
+        S += f + SEP
     
     # 5. If the service discovery information response includes XEP-0128
     # data forms, sort the forms by the FORM_TYPE field.
@@ -83,7 +83,7 @@ def get_ver_string(q, opts):
     # 6. For each extended service discovery information form:
     for typ, fields in forms:
         # 0. Append the value of the FORM_TYPE field, followed by the '<' character.
-        S += check(typ) + "<"
+        S += check(typ) + SEP
         
         # 1. Sort the fields by the value of the "var" attribute.
         fields.sort()
@@ -92,7 +92,7 @@ def get_ver_string(q, opts):
         for var, vals in fields:
             # 0. Append the value of the "var" attribute, followed by the
             # '<' character.
-            S += var + "<"
+            S += var + SEP
             
             # 1. Sort values by the XML character data of the <value/>
             # element.
@@ -101,7 +101,7 @@ def get_ver_string(q, opts):
             # 2. For each <value/> element, append the XML character data,
             # followed by the '<' character.
             for v in vals:
-                S += v + "<"
+                S += v + SEP
                 
     if opts.verbose:
         print S
